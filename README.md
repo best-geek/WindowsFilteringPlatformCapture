@@ -1,2 +1,29 @@
 # WindowsFilteringPlatformCapture
-A script that can be used to capture traffic that goes through the Windows Filtering Platform
+A script that can be used to capture traffic that goes through the Windows Filtering Platform. This was hacked together very quickly. 
+
+The aim of this script is to start getting pointers at what may be allowing or blocking traffic. It achieves this by temporarily enabling auditing of the Filtering Platform within Windows. 
+
+The script aims to do some enrichment on the information provided to support investigation. 
+
+As auditing of the Filtering Platform generates a significant volume of events in the Windows Security log, longer capture times will lead to longer enrichment times. Log size and enrichment time can be reduced by clearing the Windows Security Audit Log to remove any historical Filtering logs captured.  
+
+[!important]
+**NOTE** The `EnrichedNetFirewallPortFilter` value result may be incorrect if the destination address does not match the host you're running the script on. This column is simply the output of running `Get-NetFirewallPortFilter ` on the host, and does not check if the packet/connection is actually destined for the host you're running the script on. 
+
+
+## Run the script
+Running the script can be done interactively via:
+` .\FilterCapture.ps1 -CaptureSeconds 30 `. If `CaptureSeconds` is not specified, the default value is 10
+
+*Defender Live Response*
+The script can also be run from Defender Live Response with `run FilterCapture.ps1 -parameters "-CaptureSeconds 30"`. Note due to how Live Respone scripts work, you have to wait for the full script to complete before seeing any ouput, so it may appear to 'hang'. Once complete, you can combine the `getfile` command with the ouput files listed by the script, i.e. `getfile "C:\Windows\TEMP\FilteringPlatformEvents-Enriched.csv"`
+
+## Output
+- ` filters.xml`: This contains filterId values dumped from `netsh`. This is a source of enrichment the script uses.
+- ` FilteringPlatformEvents.csv`: This is a direct copy of Filtering events from the Windows Security Log
+- ` FilteringPlatformEvents-Enriched.csv`: This an enriched copy of the above file, containing additional columns. 
+
+### Sample Enriched Value
+|   EntryType     |   TimeGenerated        |   Source                               |   EventID  |   Category  |   Message                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |   EnrichedFilterIdResult          |   EnrichedNetFirewallPortFilter                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+|-----------------|------------------------|----------------------------------------|------------|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|   SuccessAudit  |   07/03/2025 08:30:15  |   Microsoft-Windows-Security-Auditing  |   5156     |   -12810    |   The Windows Filtering Platform has permitted a connection.       Application Information:   	Process ID:		4   	Application Name:	System       Network Information:   	Direction:		%%14592   	Source Address:		192.168.0.167   	Source Port:		53554   	Destination Address:	192.168.0.8   	Destination Port:		445   	Protocol:		6   	Interface Index:		11       Filter Information:   	Filter Origin:		Unknown   	Filter Run-Time ID:	68952   	Layer Name:		%%14610   	Layer Run-Time ID:	44   	Remote User ID:		S-1-0-0   	Remote Machine ID:	S-1-0-0  |   Interface Un-quarantine filter  |   InstanceID                             Protocol   ----------                             --------   RemoteEventLogSvc-NP-In-TCP-NoScope    TCP        RemoteEventLogSvc-NP-In-TCP            TCP        RemoteSvcAdmin-NP-In-TCP-NoScope       TCP        FPS-SMB-In-TCP                         TCP        RemoteSvcAdmin-NP-In-TCP               TCP        FPS-SMB-In-TCP-NoScope                 TCP        Netlogon-NamedPipe-In                  TCP        {30A3285F-1C05-49B7-937C-E3FEA73F7459} TCP  |
